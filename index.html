@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuestGrid – Event Guest & Table Seating Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- Toast Notification Banner (Replaces alert) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <!-- Grid/Table SVG Icon -->
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-extrabold tracking-tight text-white">GUESTGRID</h1>
+                        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                            C11 Visual App
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Event Guest & Table Seating Manager</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="resetSampleData()" title="Restore default sample guests" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span class="hidden md:inline">Reset Sample</span>
+                </button>
+                <button onclick="toggleFileDrawer()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span>guests.txt</span>
+                </button>
+                <button onclick="openAddModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span>Add Guest</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Live Event Report Stats Cards -->
+        <section aria-label="Event Statistics" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            <!-- Total Registered -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Registered</span>
+                    <span class="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span id="stat-total" class="text-2xl font-extrabold text-white">6</span>
+                    <span class="text-xs text-slate-500">/ 500</span>
+                </div>
+            </div>
+
+            <!-- Arrived / Checked-In -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Arrived</span>
+                    <span class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span id="stat-arrived" class="text-2xl font-extrabold text-emerald-400">4</span>
+                    <span id="stat-arrived-pct" class="text-xs font-medium text-emerald-500/80">67%</span>
+                </div>
+            </div>
+
+            <!-- Pending Arrival -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pending</span>
+                    <span class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span id="stat-pending" class="text-2xl font-extrabold text-amber-400">2</span>
+                    <span class="text-xs text-slate-500">guests</span>
+                </div>
+            </div>
+
+            <!-- Occupied Seats -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Occupied</span>
+                    <span class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 8a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4z"></path>
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span id="stat-seats" class="text-2xl font-extrabold text-indigo-400">6</span>
+                    <span class="text-xs text-slate-500">/ 80 seats</span>
+                </div>
+            </div>
+
+            <!-- Available Seats -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Available</span>
+                    <span class="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span id="stat-avail" class="text-2xl font-extrabold text-cyan-400">74</span>
+                    <span class="text-xs text-slate-500">free seats</span>
+                </div>
+            </div>
+
+            <!-- Unassigned Guests -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Unassigned</span>
+                    <span class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </span>
+                </div>
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span id="stat-unassigned" class="text-2xl font-extrabold text-rose-400">0</span>
+                    <span class="text-xs text-slate-500">no table</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- View Switcher Tabs -->
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3">
+            <div class="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button id="tab-guests" onclick="switchView('guests')" class="px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white transition cursor-pointer">
+                    Guest Roster & Check-In
+                </button>
+                <button id="tab-tables" onclick="switchView('tables')" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition cursor-pointer">
+                    10-Table Seating Grid
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="autoAssignTables()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span>Auto-Assign Unassigned (Keep Groups Together)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW 1: Guest Management Roster -->
+        <section id="view-guests" class="space-y-4">
+            <!-- Search & Filter Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                <div class="relative flex-1">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input id="search-input" type="text" oninput="renderAll()" placeholder="Search by ID (e.g. G001), Name, Phone, or Family/Group..."
+                        class="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <select id="filter-status" onchange="renderAll()" class="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        <option value="all">All Statuses</option>
+                        <option value="arrived">Arrived Only</option>
+                        <option value="pending">Pending Only</option>
+                    </select>
+
+                    <select id="filter-group" onchange="renderAll()" class="px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        <option value="all">All Groups</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Responsive Guest Table -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/60 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                <th class="py-3.5 px-4">Guest ID</th>
+                                <th class="py-3.5 px-4">Name</th>
+                                <th class="py-3.5 px-4">Phone</th>
+                                <th class="py-3.5 px-4">Family / Group</th>
+                                <th class="py-3.5 px-4">Assigned Table</th>
+                                <th class="py-3.5 px-4">Arrival Status</th>
+                                <th class="py-3.5 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="guest-table-body" class="divide-y divide-slate-800/70 text-sm">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-state" class="hidden py-12 text-center">
+                    <p class="text-slate-400 text-sm">No matching guests found.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: 10-Table Seating Visualizer -->
+        <section id="view-tables" class="hidden space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 bg-slate-900/70 border border-slate-800 rounded-xl px-4 py-3">
+                <span>Configuration: <strong class="text-white">10 Tables</strong> &bull; <strong class="text-white">8 Seats / Table</strong> &bull; <strong class="text-white">80 Total Capacity</strong></span>
+                <div class="flex items-center gap-4">
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Arrived</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Pending</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span> Empty Seat</span>
+                </div>
+            </div>
+
+            <div id="tables-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Add / Edit Guest Modal -->
+    <div id="guest-modal" class="fixed inset-0 z-40 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 id="modal-title" class="text-lg font-bold text-white">Register New Guest</h2>
+                <button onclick="closeGuestModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="guest-form" onsubmit="handleGuestSubmit(event)" class="space-y-4">
+                <input type="hidden" id="edit-guest-id" value="">
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Guest Full Name</label>
+                    <input id="input-name" type="text" required maxlength="49" placeholder="e.g. TEJ"
+                        class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Phone Number (Duplicate Checked)</label>
+                    <input id="input-phone" type="text" required maxlength="14" placeholder="e.g. 9876543210"
+                        class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white font-mono focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Family / Group Name</label>
+                    <input id="input-group" type="text" required maxlength="49" placeholder="e.g. FAMILY or VIP"
+                        class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Table Assignment (Optional)</label>
+                    <select id="input-table" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <option value="0">Unassigned (Assign Later)</option>
+                        <option value="1">Table 1</option>
+                        <option value="2">Table 2</option>
+                        <option value="3">Table 3</option>
+                        <option value="4">Table 4</option>
+                        <option value="5">Table 5</option>
+                        <option value="6">Table 6</option>
+                        <option value="7">Table 7</option>
+                        <option value="8">Table 8</option>
+                        <option value="9">Table 9</option>
+                        <option value="10">Table 10</option>
+                    </select>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-2">
+                    <button type="button" onclick="closeGuestModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition cursor-pointer">
+                        Save Record
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Live guests.txt File Drawer -->
+    <div id="file-drawer" class="fixed inset-0 z-40 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                    <h2 class="text-base font-bold font-mono text-white">guests.txt</h2>
+                    <span class="text-xs text-slate-400">(Pipe-Delimited C File Storage Format)</span>
+                </div>
+                <button onclick="toggleFileDrawer()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-400">
+                Format: <code class="text-indigo-400 font-mono">ID|Name|Phone|Group|TableNo|CheckedIn</code> (updates automatically on every change)
+            </p>
+
+            <textarea id="guests-txt-output" readonly rows="10"
+                class="w-full p-4 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs sm:text-sm text-emerald-400 focus:outline-none resize-none"></textarea>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <button onclick="copyGuestsTxt()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        <span>Copy</span>
+                    </button>
+                    <button onclick="downloadGuestsTxt()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span>Download guests.txt</span>
+                    </button>
+                </div>
+                <button onclick="toggleFileDrawer()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants matching guestgrid.c
+        const MAX_GUESTS = 500;
+        const TOTAL_TABLES = 10;
+        const SEATS_PER_TABLE = 8;
+        const STORAGE_KEY = 'guestgrid_records_v1';
+
+        const DEFAULT_GUESTS = [
+            { id: 1, name: "TEJ",   phone: "988",         group: "FAMILY", tableNo: 5, checkedIn: 1 },
+            { id: 2, name: "RAJ",   phone: "74783648",    group: "GROUP",  tableNo: 1, checkedIn: 1 },
+            { id: 3, name: "KAMAL", phone: "32487326",    group: "FAMILY", tableNo: 5, checkedIn: 1 },
+            { id: 4, name: "KANNA", phone: "999-999-999", group: "FAMILY", tableNo: 5, checkedIn: 1 },
+            { id: 5, name: "ANNA",  phone: "88-888-888-", group: "GROUP",  tableNo: 1, checkedIn: 0 },
+            { id: 6, name: "PANDU", phone: "4-4-4-4-4-",  group: "GROUP",  tableNo: 1, checkedIn: 0 }
+        ];
+
+        // Load from LocalStorage or fall back to exact guests.txt sample records
+        function loadInitialGuests() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) return parsed;
+                }
+            } catch (e) {
+                console.warn('LocalStorage unavailable, using default records.');
+            }
+            return JSON.parse(JSON.stringify(DEFAULT_GUESTS));
+        }
+
+        function saveToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(guests));
+            } catch (e) {
+                console.warn('Could not persist to LocalStorage.');
+            }
+        }
+
+        let guests = loadInitialGuests();
+        let nextID = guests.reduce((max, g) => Math.max(max, g.id), 0) + 1;
+
+        function resetSampleData() {
+            guests = JSON.parse(JSON.stringify(DEFAULT_GUESTS));
+            nextID = 7;
+            saveToStorage();
+            renderAll();
+            showToast('Restored original 6 sample guests from guests.txt!');
+        }
+
+        // Format numeric ID as G001, G002, etc. (matching C's G%03d)
+        function formatGuestID(id) {
+            return 'G' + String(id).padStart(3, '0');
+        }
+
+        // Count occupied seats at a given table
+        function getTableOccupancy(tableNo) {
+            return guests.filter(g => g.tableNo === tableNo).length;
+        }
+
+        // Show non-intrusive toast message
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = type === 'error'
+                ? 'bg-rose-950/95 border-rose-500/40 text-rose-200'
+                : 'bg-slate-900/95 border-emerald-500/40 text-emerald-200';
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-xl text-sm font-medium flex items-center gap-2.5 transition-all duration-300 ${colors}`;
+            toast.innerHTML = `
+                <span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}"></span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Switch between Roster view and 10-Table Grid view
+        function switchView(view) {
+            const viewGuests = document.getElementById('view-guests');
+            const viewTables = document.getElementById('view-tables');
+            const tabGuests = document.getElementById('tab-guests');
+            const tabTables = document.getElementById('tab-tables');
+
+            if (view === 'guests') {
+                viewGuests.classList.remove('hidden');
+                viewTables.classList.add('hidden');
+                tabGuests.className = 'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white transition cursor-pointer';
+                tabTables.className = 'px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition cursor-pointer';
+            } else {
+                viewGuests.classList.add('hidden');
+                viewTables.classList.remove('hidden');
+                tabTables.className = 'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white transition cursor-pointer';
+                tabGuests.className = 'px-4 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white transition cursor-pointer';
+            }
+        }
+
+        // Update top statistics cards
+        function updateStats() {
+            const total = guests.length;
+            const arrived = guests.filter(g => g.checkedIn === 1).length;
+            const pending = total - arrived;
+            const seated = guests.filter(g => g.tableNo > 0).length;
+            const unassigned = total - seated;
+            const totalSeats = TOTAL_TABLES * SEATS_PER_TABLE;
+            const pct = total > 0 ? Math.round((arrived / total) * 100) : 0;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-arrived').textContent = arrived;
+            document.getElementById('stat-arrived-pct').textContent = `${pct}%`;
+            document.getElementById('stat-pending').textContent = pending;
+            document.getElementById('stat-seats').textContent = seated;
+            document.getElementById('stat-avail').textContent = totalSeats - seated;
+            document.getElementById('stat-unassigned').textContent = unassigned;
+        }
+
+        // Populate unique groups dropdown filter
+        function updateGroupFilter() {
+            const select = document.getElementById('filter-group');
+            const currentVal = select.value;
+            const groups = [...new Set(guests.map(g => g.group))].sort();
+
+            select.innerHTML = '<option value="all">All Groups</option>';
+            groups.forEach(grp => {
+                const opt = document.createElement('option');
+                opt.value = grp;
+                opt.textContent = grp;
+                select.appendChild(opt);
+            });
+
+            if (groups.includes(currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        // Render Guest Roster Table
+        function renderGuestsTable() {
+            const tbody = document.getElementById('guest-table-body');
+            const emptyState = document.getElementById('empty-state');
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const statusFilter = document.getElementById('filter-status').value;
+            const groupFilter = document.getElementById('filter-group').value;
+
+            const filtered = guests.filter(g => {
+                const idStr = formatGuestID(g.id).toLowerCase();
+                const matchesSearch = !query ||
+                    idStr.includes(query) ||
+                    String(g.id) === query ||
+                    g.name.toLowerCase().includes(query) ||
+                    g.phone.toLowerCase().includes(query) ||
+                    g.group.toLowerCase().includes(query);
+
+                const matchesStatus = statusFilter === 'all' ||
+                    (statusFilter === 'arrived' && g.checkedIn === 1) ||
+                    (statusFilter === 'pending' && g.checkedIn === 0);
+
+                const matchesGroup = groupFilter === 'all' || g.group === groupFilter;
+
+                return matchesSearch && matchesStatus && matchesGroup;
+            });
+
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            filtered.forEach(g => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition';
+
+                // Build table selector options (0..10)
+                let tableOptions = `<option value="0" ${g.tableNo === 0 ? 'selected' : ''}>Unassigned</option>`;
+                for (let t = 1; t <= TOTAL_TABLES; t++) {
+                    const occ = getTableOccupancy(t);
+                    const isFull = occ >= SEATS_PER_TABLE && g.tableNo !== t;
+                    tableOptions += `<option value="${t}" ${g.tableNo === t ? 'selected' : ''} ${isFull ? 'disabled' : ''}>
+                        Table ${t} (${occ}/${SEATS_PER_TABLE})${isFull ? ' - Full' : ''}
+                    </option>`;
+                }
+
+                const statusBadge = g.checkedIn === 1
+                    ? `<button onclick="toggleCheckIn(${g.id})" title="Click to toggle status" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition cursor-pointer">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Arrived
+                       </button>`
+                    : `<button onclick="toggleCheckIn(${g.id})" title="Click to check in guest" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition cursor-pointer">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Pending
+                       </button>`;
+
+                tr.innerHTML = `
+                    <td class="py-3.5 px-4 font-mono font-semibold text-indigo-400">${formatGuestID(g.id)}</td>
+                    <td class="py-3.5 px-4 font-semibold text-white">${g.name}</td>
+                    <td class="py-3.5 px-4 font-mono text-slate-300">${g.phone}</td>
+                    <td class="py-3.5 px-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700">
+                            ${g.group}
+                        </span>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <select onchange="assignSingleTable(${g.id}, this.value)"
+                            class="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            ${tableOptions}
+                        </select>
+                    </td>
+                    <td class="py-3.5 px-4">${statusBadge}</td>
+                    <td class="py-3.5 px-4 text-right space-x-1">
+                        <button onclick="openEditModal(${g.id})" title="Update Guest" class="p-2 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-slate-800 transition cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="deleteGuest(${g.id})" title="Delete Guest" class="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render 10-Table Visual Seating Grid
+        function renderTablesGrid() {
+            const grid = document.getElementById('tables-grid');
+            grid.innerHTML = '';
+
+            for (let t = 1; t <= TOTAL_TABLES; t++) {
+                const seatedGuests = guests.filter(g => g.tableNo === t);
+                const occ = seatedGuests.length;
+                const avail = SEATS_PER_TABLE - occ;
+                const isFull = occ >= SEATS_PER_TABLE;
+
+                let seatSlotsHTML = '';
+                for (let s = 0; s < SEATS_PER_TABLE; s++) {
+                    const guest = seatedGuests[s];
+                    if (guest) {
+                        const dotColor = guest.checkedIn ? 'bg-emerald-400' : 'bg-amber-400';
+                        seatSlotsHTML += `
+                            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+                                <div class="flex items-center gap-2 truncate">
+                                    <span class="w-2 h-2 rounded-full shrink-0 ${dotColor}"></span>
+                                    <span class="font-semibold text-white truncate">${guest.name}</span>
+                                </div>
+                                <span class="text-[10px] font-mono text-slate-400 ml-1 shrink-0">${guest.group}</span>
+                            </div>
+                        `;
+                    } else {
+                        seatSlotsHTML += `
+                            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-950/40 border border-dashed border-slate-800/80 text-xs text-slate-600">
+                                <span class="w-2 h-2 rounded-full bg-slate-800"></span>
+                                <span>Seat ${s + 1} Available</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                const card = document.createElement('div');
+                const pctWidth = Math.round((occ / SEATS_PER_TABLE) * 100);
+                const barColor = isFull ? 'bg-rose-500' : (occ > 0 ? 'bg-indigo-500' : 'bg-slate-700');
+
+                card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-sm';
+                card.innerHTML = `
+                    <div class="space-y-2 border-b border-slate-800 pb-2.5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-bold text-white">Table ${t}</h3>
+                                <p class="text-[11px] text-slate-400">${avail} seat${avail === 1 ? '' : 's'} free</p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold ${isFull ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'}">
+                                ${occ} / ${SEATS_PER_TABLE}
+                            </span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="h-full ${barColor} transition-all duration-300" style="width: ${pctWidth}%"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        ${seatSlotsHTML}
+                    </div>
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+        // Update live guests.txt preview
+        function updateGuestsTxtOutput() {
+            const lines = guests.map(g => `${g.id}|${g.name}|${g.phone}|${g.group}|${g.tableNo}|${g.checkedIn}`);
+            document.getElementById('guests-txt-output').value = lines.join('\n');
+        }
+
+        // Master UI refresh & persist
+        function renderAll() {
+            saveToStorage();
+            updateStats();
+            updateGroupFilter();
+            renderGuestsTable();
+            renderTablesGrid();
+            updateGuestsTxtOutput();
+        }
+
+        // Toggle Check-In Status (Option 8)
+        function toggleCheckIn(id) {
+            const guest = guests.find(g => g.id === id);
+            if (!guest) return;
+            guest.checkedIn = guest.checkedIn === 1 ? 0 : 1;
+            renderAll();
+            showToast(`${formatGuestID(guest.id)} (${guest.name}) marked as ${guest.checkedIn ? 'Arrived' : 'Pending'}.`);
+        }
+
+        // Assign individual table (Option 6 - Mode 1)
+        function assignSingleTable(id, tableVal) {
+            const tableNo = parseInt(tableVal, 10);
+            const guest = guests.find(g => g.id === id);
+            if (!guest) return;
+
+            if (tableNo > 0 && guest.tableNo !== tableNo && getTableOccupancy(tableNo) >= SEATS_PER_TABLE) {
+                showToast(`Table ${tableNo} is full (${SEATS_PER_TABLE}/${SEATS_PER_TABLE} seats)!`, 'error');
+                renderAll();
+                return;
+            }
+
+            guest.tableNo = tableNo;
+            renderAll();
+            showToast(tableNo === 0
+                ? `${formatGuestID(guest.id)} unassigned from table.`
+                : `${formatGuestID(guest.id)} (${guest.name}) assigned to Table ${tableNo}.`
+            );
+        }
+
+        // Auto-Assign Unassigned Guests keeping groups together (Option 6 - Mode 2)
+        function autoAssignTables() {
+            let assignedCount = 0;
+
+            for (let i = 0; i < guests.length; i++) {
+                if (guests[i].tableNo !== 0) continue;
+
+                let chosenTable = 0;
+
+                // Step A: Look for existing table with same group & available seats
+                for (let j = 0; j < guests.length; j++) {
+                    if (guests[j].tableNo > 0 &&
+                        guests[j].group.toLowerCase() === guests[i].group.toLowerCase() &&
+                        getTableOccupancy(guests[j].tableNo) < SEATS_PER_TABLE) {
+                        chosenTable = guests[j].tableNo;
+                        break;
+                    }
+                }
+
+                // Step B: Otherwise pick first table with free space
+                if (chosenTable === 0) {
+                    for (let t = 1; t <= TOTAL_TABLES; t++) {
+                        if (getTableOccupancy(t) < SEATS_PER_TABLE) {
+                            chosenTable = t;
+                            break;
+                        }
+                    }
+                }
+
+                if (chosenTable > 0) {
+                    guests[i].tableNo = chosenTable;
+                    assignedCount++;
+                } else {
+                    showToast('All 10 tables (80 seats) are full!', 'error');
+                    break;
+                }
+            }
+
+            renderAll();
+            if (assignedCount > 0) {
+                showToast(`Auto-assigned ${assignedCount} guest(s) while keeping groups together!`);
+            } else {
+                showToast('All registered guests already have assigned tables.');
+            }
+        }
+
+        // Open Add Modal
+        function openAddModal() {
+            document.getElementById('modal-title').textContent = 'Register New Guest';
+            document.getElementById('edit-guest-id').value = '';
+            document.getElementById('input-name').value = '';
+            document.getElementById('input-phone').value = '';
+            document.getElementById('input-group').value = '';
+            document.getElementById('input-table').value = '0';
+            document.getElementById('guest-modal').classList.remove('hidden');
+        }
+
+        // Open Edit Modal (Option 4)
+        function openEditModal(id) {
+            const guest = guests.find(g => g.id === id);
+            if (!guest) return;
+
+            document.getElementById('modal-title').textContent = `Update Guest (${formatGuestID(guest.id)})`;
+            document.getElementById('edit-guest-id').value = guest.id;
+            document.getElementById('input-name').value = guest.name;
+            document.getElementById('input-phone').value = guest.phone;
+            document.getElementById('input-group').value = guest.group;
+            document.getElementById('input-table').value = String(guest.tableNo);
+            document.getElementById('guest-modal').classList.remove('hidden');
+        }
+
+        function closeGuestModal() {
+            document.getElementById('guest-modal').classList.add('hidden');
+        }
+
+        // Handle Add or Update Form Submission (Options 1 & 4)
+        function handleGuestSubmit(event) {
+            event.preventDefault();
+            const editIdRaw = document.getElementById('edit-guest-id').value;
+            const name = document.getElementById('input-name').value.trim().toUpperCase();
+            const phone = document.getElementById('input-phone').value.trim();
+            const group = document.getElementById('input-group').value.trim().toUpperCase();
+            const tableNo = parseInt(document.getElementById('input-table').value, 10);
+
+            if (!name || !phone || !group) return;
+
+            if (editIdRaw === '') {
+                // Add New Guest
+                if (guests.length >= MAX_GUESTS) {
+                    showToast('Guest storage is full (500 max)!', 'error');
+                    return;
+                }
+                if (guests.some(g => g.phone === phone)) {
+                    showToast('Duplicate Guest Detected! Phone number already registered.', 'error');
+                    return;
+                }
+                if (tableNo > 0 && getTableOccupancy(tableNo) >= SEATS_PER_TABLE) {
+                    showToast(`Table ${tableNo} is full! Select another table or Unassigned.`, 'error');
+                    return;
+                }
+
+                const newGuest = {
+                    id: nextID++,
+                    name,
+                    phone,
+                    group,
+                    tableNo,
+                    checkedIn: 0
+                };
+                guests.push(newGuest);
+                closeGuestModal();
+                renderAll();
+                showToast(`Registered ${formatGuestID(newGuest.id)} (${newGuest.name})!`);
+            } else {
+                // Update Existing Guest
+                const editId = parseInt(editIdRaw, 10);
+                const guest = guests.find(g => g.id === editId);
+                if (!guest) return;
+
+                if (guests.some(g => g.id !== editId && g.phone === phone)) {
+                    showToast(`Another guest already uses phone ${phone}!`, 'error');
+                    return;
+                }
+                if (tableNo > 0 && guest.tableNo !== tableNo && getTableOccupancy(tableNo) >= SEATS_PER_TABLE) {
+                    showToast(`Table ${tableNo} is full!`, 'error');
+                    return;
+                }
+
+                guest.name = name;
+                guest.phone = phone;
+                guest.group = group;
+                guest.tableNo = tableNo;
+
+                closeGuestModal();
+                renderAll();
+                showToast(`Updated ${formatGuestID(guest.id)} successfully!`);
+            }
+        }
+
+        // Delete Guest (Option 5)
+        function deleteGuest(id) {
+            const idx = guests.findIndex(g => g.id === id);
+            if (idx === -1) return;
+            const removed = guests[idx];
+            guests.splice(idx, 1);
+            renderAll();
+            showToast(`Deleted ${formatGuestID(removed.id)} (${removed.name}).`);
+        }
+
+        // Toggle guests.txt Drawer
+        function toggleFileDrawer() {
+            const drawer = document.getElementById('file-drawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        // Copy guests.txt content using execCommand
+        function copyGuestsTxt() {
+            const textarea = document.getElementById('guests-txt-output');
+            textarea.select();
+            document.execCommand('copy');
+            showToast('Copied guests.txt contents to clipboard!');
+        }
+
+        // Download pipe-delimited guests.txt file
+        function downloadGuestsTxt() {
+            const content = document.getElementById('guests-txt-output').value;
+            const blob = new Blob([content + '\n'], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'guests.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Downloaded guests.txt!');
+        }
+
+        // Initial render on load
+        window.onload = function () {
+            renderAll();
+        };
+    </script>
+</body>
+</html>
