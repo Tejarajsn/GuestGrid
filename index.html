@@ -886,49 +886,57 @@
             showToast('Downloaded guests.txt!');
         }
 const DB_URL = "https://guestgrid-da6ab-default-rtdb.asia-southeast1.firebasedatabase.app/guests.json";
+        let isCloudReady = false;
 
-        // Automatically sync every localStorage save to Firebase Realtime Database
-        const _origSetItem = localStorage.setItem.bind(localStorage);
-        localStorage.setItem = function (key, value) {
-            _origSetItem(key, value);
-            if (key === 'guestgrid_guests') {
-                fetch(DB_URL, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: value
-                }).catch(err => console.error('Firebase sync error:', err));
+        // Save current guests array to Firebase & LocalStorage
+        function saveGuestsToCloud() {
+            localStorage.setItem('guestgrid_guests', JSON.stringify(guests));
+            fetch(DB_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(guests)
+            }).catch(err => console.error('Firebase save error:', err));
+        }
+
+        // Automatically sync whenever the UI updates after any action
+        const _origRenderAll = renderAll;
+        renderAll = function () {
+            _origRenderAll();
+            if (isCloudReady) {
+                saveGuestsToCloud();
             }
         };
 
-        // Load latest guest data from Firebase on startup
-        async function syncFromFirebase() {
+        // Load saved guests from Firebase on startup
+        async function initCloudSync() {
+            const cached = localStorage.getItem('guestgrid_guests');
+            if (cached) {
+                try { guests = JSON.parse(cached); } catch (e) {}
+            }
+            _origRenderAll();
+
             try {
                 const res = await fetch(DB_URL);
                 const cloudData = await res.json();
                 if (cloudData && Array.isArray(cloudData)) {
                     guests = cloudData.filter(Boolean);
-                    _origSetItem('guestgrid_guests', JSON.stringify(guests));
+                    localStorage.setItem('guestgrid_guests', JSON.stringify(guests));
                 } else if (cloudData && typeof cloudData === 'object') {
                     guests = Object.values(cloudData);
-                    _origSetItem('guestgrid_guests', JSON.stringify(guests));
-                } else if (guests && guests.length > 0) {
-                    // First run: upload initial sample guests to Firebase
-                    await fetch(DB_URL, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(guests)
-                    });
+                    localStorage.setItem('guestgrid_guests', JSON.stringify(guests));
+                } else {
+                    saveGuestsToCloud();
                 }
-                renderAll();
             } catch (err) {
                 console.error('Firebase load error:', err);
             }
+
+            isCloudReady = true;
+            _origRenderAll();
         }
-        
-        // Initial render on load
+
         window.onload = function () {
-            renderAll();
-            syncFromFirebase();
+            initCloudSync();
         };
     </script>
 </body>
