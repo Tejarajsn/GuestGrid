@@ -889,19 +889,21 @@ const DB_URL = "https://guestgrid-da6ab-default-rtdb.asia-southeast1.firebasedat
         let isCloudReady = false;
 
        function normalizeGuestIds() {
-         let maxId = 0;
-         guests.forEach((g, idx) => {
-             if (!g.id || isNaN(Number(g.id))) {
-                 g.id = idx + 1;
-             } else {
-                 g.id = Number(g.id);
-             }
-             if (g.id > maxId) maxId = g.id;
-         });
-         if (typeof nextId !== 'undefined') {
-             nextId = maxId + 1;
-         }
-     }
+            const seen = new Set();
+            let maxId = 0;
+            guests.forEach((g, idx) => {
+                let numId = Number(g.id);
+                if (!numId || isNaN(numId) || seen.has(numId)) {
+                    numId = maxId + 1;
+                }
+                g.id = numId;
+                seen.add(numId);
+                if (numId > maxId) maxId = numId;
+            });
+            if (typeof nextId !== 'undefined') {
+                nextId = maxId + 1;
+            }
+        }
 
      // Save current guests array to Firebase & LocalStorage
      function saveGuestsToCloud() {
