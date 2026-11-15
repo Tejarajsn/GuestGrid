@@ -934,7 +934,7 @@ const DB_URL = "https://guestgrid-da6ab-default-rtdb.asia-southeast1.firebasedat
             _origRenderAll();
 
             try {
-                const res = await fetch(DB_URL);
+                const res = await fetch(DB_URL, { cache: 'no-store' });
                 const cloudData = await res.json();
                 if (cloudData && Array.isArray(cloudData)) {
                     guests = cloudData.filter(Boolean);
