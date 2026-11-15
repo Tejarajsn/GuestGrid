@@ -888,15 +888,31 @@
 const DB_URL = "https://guestgrid-da6ab-default-rtdb.asia-southeast1.firebasedatabase.app/guests.json";
         let isCloudReady = false;
 
-        // Save current guests array to Firebase & LocalStorage
-        function saveGuestsToCloud() {
-            localStorage.setItem('guestgrid_guests', JSON.stringify(guests));
-            fetch(DB_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(guests)
-            }).catch(err => console.error('Firebase save error:', err));
-        }
+       function normalizeGuestIds() {
+         let maxId = 0;
+         guests.forEach((g, idx) => {
+             if (!g.id || isNaN(Number(g.id))) {
+                 g.id = idx + 1;
+             } else {
+                 g.id = Number(g.id);
+             }
+             if (g.id > maxId) maxId = g.id;
+         });
+         if (typeof nextId !== 'undefined') {
+             nextId = maxId + 1;
+         }
+     }
+
+     // Save current guests array to Firebase & LocalStorage
+     function saveGuestsToCloud() {
+         normalizeGuestIds();
+         localStorage.setItem('guestgrid_guests', JSON.stringify(guests));
+         fetch(DB_URL, {
+             method: 'PUT',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(guests)
+         }).catch(err => console.error('Firebase save error:', err));
+     }
 
         // Automatically sync whenever the UI updates after any action
         const _origRenderAll = renderAll;
@@ -930,7 +946,7 @@ const DB_URL = "https://guestgrid-da6ab-default-rtdb.asia-southeast1.firebasedat
             } catch (err) {
                 console.error('Firebase load error:', err);
             }
-
+            normalizeGuestIds();
             isCloudReady = true;
             _origRenderAll();
         }
